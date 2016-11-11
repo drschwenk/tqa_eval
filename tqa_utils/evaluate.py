@@ -23,29 +23,6 @@ class Evaluator(DataSetCommonTools):
         total_answered_counts, overall_expected_score = self.validate_answer_format(predicted_answers)
         questions_by_type = self.build_question_lookup(by_type=True)
         questions_by_subtype = self.build_questions_by_subtype(questions_by_type['nonDiagramQuestions'])
-        # results = []
-        # expected_totals = {}
-        # expected_by_chance = {}
-        # for question_type, questions in questions_by_type.items():
-        #     expected_totals[question_type] = len(questions)
-        #     expected_by_chance[question_type] = self.expected_score_by_chance(questions.values())
-        #     for q_id, answer in predicted_answers.items():
-        #         if q_id in questions.keys():
-        #             if self.answered_correctly(questions, q_id, answer):
-        #                 results.append(question_type)
-        # correct_by_type = Counter(results)
-        # correct_by_type['overall'] = sum(correct_by_type.values())
-        # accuracies = self.compute_accuracies(correct_by_type, questions_by_type)
-        # total_answered_counts['overall'] = sum(total_answered_counts.values())
-        # expected_totals['overall'] = sum(expected_totals.values())
-        # expected_by_chance['overall'] = overall_expected_score
-        # results_to_tabulate = {
-        #     'accuracy': accuracies,
-        #     'total correct': correct_by_type,
-        #     'number of questions expected': expected_totals,
-        #     'number of questions answered': total_answered_counts,
-        #     'baseline accuracy (random guesses)': expected_by_chance
-        # }
         self.print_results(self.tabulate_results_by_type(questions_by_type, predicted_answers, overall_expected_score, total_answered_counts))
         print('Non-Diagram Question Type Breakdown')
         self.print_results(self.tabulate_results_by_type(questions_by_subtype, predicted_answers, overall_expected_score))
@@ -136,7 +113,6 @@ class Evaluator(DataSetCommonTools):
             questions_by_subtype[sub_type] = {qid: question for qid, question in nd_questions.items()
                                               if question['questionSubType'] == sub_type}
         return questions_by_subtype
-
 
     def print_results(self, results):
         build_results = defaultdict(list)
