@@ -1,7 +1,7 @@
 from invoke import task
 import tqa_utils.render_html as render_html
-from tqa_utils.validate_and_split import DataSetIntegrityChecker
-from tqa_utils.validate_and_split import TestTrainSplitter
+# from tqa_utils.validate_and_split import DataSetIntegrityChecker
+# from tqa_utils.validate_and_split import TestTrainSplitter
 from tqa_utils.evaluate import Evaluator
 
 

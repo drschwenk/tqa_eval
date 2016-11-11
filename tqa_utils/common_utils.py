@@ -40,12 +40,11 @@ class DataSetCommonTools(object):
             for lesson_questions in lesson:
                 for question_id, question in lesson_questions.items():
                     d_questions[question_id] = question
-
+        diagrams_by_type = self.select_nd_mc_questions({'diagramQuestions': d_questions, 'nonDiagramQuestions': nd_questions})
         if by_type:
-            return self.select_nd_mc_questions({'diagramQuestions': d_questions, 'nonDiagramQuestions': nd_questions})
+            return diagrams_by_type
         else:
-            nd_questions.update(d_questions)
-            return self.select_nd_mc_questions(nd_questions)
+            return {**diagrams_by_type['diagramQuestions'], **diagrams_by_type['nonDiagramQuestions']}
 
     def select_nd_mc_questions(self, all_questions):
         non_dqs = all_questions['nonDiagramQuestions']

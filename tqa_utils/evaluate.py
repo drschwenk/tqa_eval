@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from collections import Counter
 import string
+from tabulate import tabulate
 from .common_utils import DataSetCommonTools
 
 
@@ -14,19 +15,13 @@ class Evaluator(DataSetCommonTools):
         self.dataset = None
 
     def evaluate_model(self, predicted_answers):
-
         if isinstance(predicted_answers, str):
             with open(predicted_answers, 'r') as f:
                 predicted_answers = json.load(f)
         if not self.dataset:
             self.load_dataset()
-        validation_errors = self.validate_answer_format(predicted_answers)
-        if not validation_errors:
-            print('All validation test pass')
-        else:
-            print('errors found ')
-            for qid, error in validation_errors.items():
-                print(qid, ' ', error)
+        validation_passed = self.validate_answer_format(predicted_answers)
+
         results = []
         questions_by_type = self.build_question_lookup(by_type=True)
         for question_type, questions in questions_by_type.items():
@@ -35,16 +30,19 @@ class Evaluator(DataSetCommonTools):
                     if self.answered_correctly(questions, q_id, answer):
                         results.append(question_type)
         correct_by_type = Counter(results)
+        correct_by_type['overall'] = sum(correct_by_type.values())
         accuracies = self.compute_accuracies(correct_by_type, questions_by_type)
-        print(accuracies)
+        results_to_tabulate = {'accuracy': accuracies, 'total correct': correct_by_type}
+        self.print_results(results_to_tabulate)
         return accuracies
 
     def compute_accuracies(self, correct_by_type, questions_by_type):
         accuracy_by_type = {}
         for q_type, number_correct in correct_by_type.items():
-            accuracy_by_type[q_type] = number_correct / len(questions_by_type[q_type])
-
-        accuracy_by_type['overall_accuracy'] = sum(correct_by_type.values()) / sum([len(v) for v in questions_by_type.values()])
+            if q_type != 'overall':
+                accuracy_by_type[q_type] = number_correct / len(questions_by_type[q_type])
+            else:
+                accuracy_by_type[q_type] = number_correct / sum([len(v) for v in questions_by_type.values()])
         return accuracy_by_type
 
     def answered_correctly(self, questions_for_type, q_id, answer):
@@ -60,4 +58,26 @@ class Evaluator(DataSetCommonTools):
                 errors[qid].append('bad id number')
             if answer not in string.ascii_letters:
                 errors[qid].append('answer not a letter index')
-        return errors
+        all_dataset_questions = self.build_question_lookup()
+        questions_missing = set(all_dataset_questions.keys()).difference(set(predicted_answers.keys()))
+        if questions_missing:
+            print('***Warning***')
+            print('the following questions do not have answers in the prediction file')
+            for qid in questions_missing:
+                print(qid)
+        if not errors and not questions_missing:
+            print('All validation test pass')
+        elif not questions_missing:
+            print('errors found ')
+            for qid, error in errors.items():
+                print(qid, ' ', error)
+        return not errors and questions_missing
+
+    def print_results(self, results):
+        build_results = defaultdict(list)
+        headers = ['question type'] + list(results.keys())
+        for result_type, results in sorted(results.items()):
+            for q_type, result in results.items():
+                build_results[q_type].extend(["{0:.2f}".format(result)])
+        display_results = [[k] + v for k, v in sorted(build_results.items())]
+        print(tabulate(display_results, headers, tablefmt="fancy_grid"))
