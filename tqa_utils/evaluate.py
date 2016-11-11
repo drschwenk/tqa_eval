@@ -20,11 +20,12 @@ class Evaluator(DataSetCommonTools):
                 predicted_answers = json.load(f)
         if not self.dataset:
             self.load_dataset()
-        validation_passed = self.validate_answer_format(predicted_answers)
-
+        total_answered_counts = self.validate_answer_format(predicted_answers)
         results = []
         questions_by_type = self.build_question_lookup(by_type=True)
+        expected_totals = {}
         for question_type, questions in questions_by_type.items():
+            expected_totals[question_type] = len(questions)
             for q_id, answer in predicted_answers.items():
                 if q_id in questions.keys():
                     if self.answered_correctly(questions, q_id, answer):
@@ -32,7 +33,14 @@ class Evaluator(DataSetCommonTools):
         correct_by_type = Counter(results)
         correct_by_type['overall'] = sum(correct_by_type.values())
         accuracies = self.compute_accuracies(correct_by_type, questions_by_type)
-        results_to_tabulate = {'accuracy': accuracies, 'total correct': correct_by_type}
+        total_answered_counts['overall'] = sum(total_answered_counts.values())
+        expected_totals['overall'] = sum(expected_totals.values())
+        results_to_tabulate = {
+            'accuracy': accuracies,
+            'total correct': correct_by_type,
+            'number of questions expected': expected_totals,
+            'number of questions answered': total_answered_counts
+        }
         self.print_results(results_to_tabulate)
         return accuracies
 
@@ -62,22 +70,28 @@ class Evaluator(DataSetCommonTools):
         questions_missing = set(all_dataset_questions.keys()).difference(set(predicted_answers.keys()))
         if questions_missing:
             print('***Warning***')
-            print('the following questions do not have answers in the prediction file')
-            for qid in questions_missing:
-                print(qid)
+            print('unanswered questions detected')
+            print('recording missing files in missing_qids.txt')
+            with open('missing_qids.txt', 'w') as f:
+                f.write("\n".join(questions_missing))
         if not errors and not questions_missing:
             print('All validation test pass')
         elif not questions_missing:
             print('errors found ')
             for qid, error in errors.items():
                 print(qid, ' ', error)
-        return not errors and questions_missing
+
+        answered_questions_total = {
+            'diagramQuestions': len([qid for qid in predicted_answers if qid[0] == 'D']),
+            'nonDiagramQuestions': len([qid for qid in predicted_answers if qid[0] == 'N'])
+        }
+        return answered_questions_total
 
     def print_results(self, results):
         build_results = defaultdict(list)
-        headers = ['question type'] + list(results.keys())
+        headers = ['question type'] + list(sorted(results.keys()))
         for result_type, results in sorted(results.items()):
-            for q_type, result in results.items():
+            for q_type, result in sorted(results.items()):
                 build_results[q_type].extend(["{0:.2f}".format(result)])
         display_results = [[k] + v for k, v in sorted(build_results.items())]
         print(tabulate(display_results, headers, tablefmt="fancy_grid"))
