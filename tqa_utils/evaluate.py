@@ -20,12 +20,14 @@ class Evaluator(DataSetCommonTools):
                 predicted_answers = json.load(f)
         if not self.dataset:
             self.load_dataset()
-        total_answered_counts = self.validate_answer_format(predicted_answers)
+        total_answered_counts, overall_expected_score = self.validate_answer_format(predicted_answers)
         results = []
         questions_by_type = self.build_question_lookup(by_type=True)
         expected_totals = {}
+        expected_by_chance = {}
         for question_type, questions in questions_by_type.items():
             expected_totals[question_type] = len(questions)
+            expected_by_chance[question_type] = self.expected_score_by_chance(questions.values())
             for q_id, answer in predicted_answers.items():
                 if q_id in questions.keys():
                     if self.answered_correctly(questions, q_id, answer):
@@ -35,11 +37,13 @@ class Evaluator(DataSetCommonTools):
         accuracies = self.compute_accuracies(correct_by_type, questions_by_type)
         total_answered_counts['overall'] = sum(total_answered_counts.values())
         expected_totals['overall'] = sum(expected_totals.values())
+        expected_by_chance['overall'] = overall_expected_score
         results_to_tabulate = {
             'accuracy': accuracies,
             'total correct': correct_by_type,
             'number of questions expected': expected_totals,
-            'number of questions answered': total_answered_counts
+            'number of questions answered': total_answered_counts,
+            'baseline accuracy (random guesses)': expected_by_chance
         }
         self.print_results(results_to_tabulate)
         return accuracies
@@ -56,6 +60,14 @@ class Evaluator(DataSetCommonTools):
     def answered_correctly(self, questions_for_type, q_id, answer):
         return answer == questions_for_type[q_id]['correctAnswer']['processedText']
 
+    def expected_score_by_chance(self, q_series):
+        total_q_n = len(q_series)
+        ac_lengths_inv = []
+        for quest in q_series:
+            ac_lengths_inv.append(1 / len(quest['answerChoices']))
+        expected_score = sum(ac_lengths_inv) / total_q_n
+        return expected_score
+
     def validate_answer_format(self, predicted_answers):
         errors = defaultdict(list)
         for qid, answer in predicted_answers.items():
@@ -67,6 +79,7 @@ class Evaluator(DataSetCommonTools):
             if answer not in string.ascii_letters:
                 errors[qid].append('answer not a letter index')
         all_dataset_questions = self.build_question_lookup()
+        overall_expected_score = self.expected_score_by_chance(all_dataset_questions.values())
         questions_missing = set(all_dataset_questions.keys()).difference(set(predicted_answers.keys()))
         if questions_missing:
             print('***Warning***')
@@ -85,13 +98,13 @@ class Evaluator(DataSetCommonTools):
             'diagramQuestions': len([qid for qid in predicted_answers if qid[0] == 'D']),
             'nonDiagramQuestions': len([qid for qid in predicted_answers if qid[0] == 'N'])
         }
-        return answered_questions_total
+        return answered_questions_total, overall_expected_score
 
     def print_results(self, results):
         build_results = defaultdict(list)
         headers = ['question type'] + list(sorted(results.keys()))
         for result_type, results in sorted(results.items()):
             for q_type, result in sorted(results.items()):
-                build_results[q_type].extend(["{0:.2f}".format(result)])
+                build_results[q_type].extend(["{0:.3f}".format(result)])
         display_results = [[k] + v for k, v in sorted(build_results.items())]
         print(tabulate(display_results, headers, tablefmt="fancy_grid"))
