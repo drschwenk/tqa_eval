@@ -106,8 +106,9 @@ class Evaluator(DataSetCommonTools):
         }
         return answered_questions_total, overall_expected_score
 
-    def build_questions_by_subtype(self, nd_questions):
-        subtypes = ["True or False", "Multiple Choice", "Matching"]
+    def build_questions_by_subtype(self, nd_questions, subtypes=None):
+        if not subtypes:
+            subtypes = ["True or False", "Multiple Choice", "Matching"]
         questions_by_subtype = defaultdict(dict)
         for sub_type in subtypes:
             questions_by_subtype[sub_type] = {qid: question for qid, question in nd_questions.items()

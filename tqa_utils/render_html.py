@@ -87,7 +87,6 @@ def make_lesson_data(lesson_json, rel_html_out_path=None):
     return nested_text
 
 
-
 def make_lesson_wdq_data(lesson_json, rel_html_out_path, question_type='diagramQuestions'):
     nested_text = []
     for question in sorted(lesson_json['questions'][question_type].values(), key=lambda x: x['globalID']):
@@ -96,12 +95,15 @@ def make_lesson_wdq_data(lesson_json, rel_html_out_path, question_type='diagramQ
         nested_text.append(question['globalID'])
         being_asked = question['beingAsked']['processedText']
         nested_text.append(being_asked)
-        for ac in sorted(question['answerChoices'].values(), key=lambda x: x['idStructural']):
-            if ac['processedText'] == question['correctAnswer']['processedText']:
+        for ac_id, ac in sorted(question['answerChoices'].items(), key=lambda x: x[1]['idStructural']):
+            if 'correctAnswer' not in question.keys() or'processedText' not in question['correctAnswer'].keys():
+                continue
+            if ac_id in question['correctAnswer']['processedText']:
                 nested_text.append('<font color="red"> ' + ' '.join([' ', ac['idStructural'], ac['processedText']]) + '</font>')
             else:
                 nested_text.append(' '.join([' ', ac['idStructural'], ac['processedText']]))
         nested_text.append('')
+        nested_text.append('&emsp;'.join(question['ocrResults']))
     return nested_text
 
 
@@ -116,10 +118,10 @@ def make_lesson_wq_data(lesson_json, rel_html_out_path, question_type='diagramQu
         nested_text.append(question['globalID'])
         being_asked = question['beingAsked']['processedText']
         nested_text.append(being_asked)
-        for ac in sorted(question['answerChoices'].values(), key=lambda x: x['idStructural']):
+        for ac_id, ac in sorted(question['answerChoices'].items(), key=lambda x: x[1]['idStructural']):
             if 'correctAnswer' not in question.keys() or'processedText' not in question['correctAnswer'].keys():
                 continue
-            if question['correctAnswer']['processedText'] in [ac['processedText'], ac['idStructural'].replace('.', '').replace(')', '')]:
+            if ac_id in question['correctAnswer']['processedText']:
                 nested_text.append('<font color="red"> ' + ' '.join([' ', ac['idStructural'], ac['processedText']]) + '</font>')
             else:
                 nested_text.append(' '.join([' ', ac['idStructural'], ac['processedText']]))
@@ -189,7 +191,31 @@ def render_html_from_dataset(path_to_data_json):
             html_out_file = os.path.join(html_dir, lesson['lessonName'].replace(' ', '_') + '_' + lesson['globalID'] + '.html')
             with open(html_out_file, 'w') as f:
                 f.write(lesson_html.encode('ascii', 'ignore').decode('utf-8'))
-            
+
+
+def render_sample_question_and_lesson(lesson, qid='', out_path='./sample_questions', ocr_res=None):
+    render_types = ['questions', 'diagram_questions', 'lessons', 'diagram_descriptions']
+    combined_sample_html = ''
+    for render in render_types:
+        html_dir = os.path.join('html_renders', render)
+        if not os.path.exists(html_dir):
+            os.makedirs(html_dir)
+        if render == 'lessons':
+            json_out_file = os.path.join(html_dir, lesson['lessonName'].replace(' ', '_') + '_' + lesson['globalID'] + '.json')
+            with open(json_out_file, 'w') as f:
+                json.dump(lesson, f, indent=4, sort_keys=True)
+        elif render == 'questions':
+            pass
+        elif not lesson['questions']['diagramQuestions']:
+            continue
+        lesson_html = display_lesson_html(lesson, lesson['lessonName'], render, out_path)
+        combined_sample_html += lesson_html + '<br>'
+    html_out_file = os.path.join(out_path, qid + '_w_context.html')
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+    with open(html_out_file,  'w') as f:
+        f.write(combined_sample_html.encode('ascii', 'ignore').decode('utf-8'))
+
 
 def main():
     parser = argparse.ArgumentParser(description='Generates HTML pages from the dataset for review')
